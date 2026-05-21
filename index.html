@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Fighter: Neon Silhouette</title>
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="An action-packed 2D silhouette fighting game with 10 challenging levels, fluid combos, and powerful upgrades. Play as the Shadow Fighter!">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- The main canvas where the action happens -->
+    <canvas id="gameCanvas" width="1024" height="576"></canvas>
+
+    <!-- Combat HUD Overlay -->
+    <div id="hud-overlay" class="screen-overlay hidden">
+      <!-- Player stats (Left side) -->
+      <div class="hud-panel player-hud">
+        <div class="hud-profile">
+          <div class="hud-avatar player-avatar"></div>
+          <div class="hud-details">
+            <h2 id="hud-player-name" class="hud-name">SHADOW</h2>
+            <div class="hud-stat-bar-container">
+              <div class="hud-bar-wrapper">
+                <span class="hud-bar-label">HP</span>
+                <div class="hud-bar health-bar"><div id="player-health" class="bar-fill health-fill"></div></div>
+              </div>
+              <div class="hud-bar-wrapper">
+                <span class="hud-bar-label">EN</span>
+                <div class="hud-bar energy-bar"><div id="player-energy" class="bar-fill energy-fill"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Level & Info Display (Center top) -->
+      <div id="hud-center-info">
+        <div id="hud-level-title">LEVEL 1</div>
+        <div id="hud-timer">99</div>
+        <div id="hud-economy">
+          <span class="hud-score-lbl">SCORE: <span id="hud-score">0</span></span>
+          <span class="hud-gold-lbl">GOLD: <span id="hud-gold">0</span></span>
+        </div>
+      </div>
+
+      <!-- Enemy stats (Right side) -->
+      <div class="hud-panel enemy-hud">
+        <div class="hud-profile reverse">
+          <div class="hud-avatar enemy-avatar"></div>
+          <div class="hud-details reverse">
+            <h2 id="hud-enemy-name" class="hud-name">RECRUIT</h2>
+            <div class="hud-stat-bar-container">
+              <div class="hud-bar-wrapper reverse">
+                <span class="hud-bar-label">HP</span>
+                <div class="hud-bar health-bar"><div id="enemy-health" class="bar-fill health-fill enemy-health-fill"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Combo & Announcement elements -->
+      <div id="combo-container" class="hidden">
+        <span id="combo-count">2</span>
+        <span class="combo-text">COMBO!</span>
+      </div>
+
+      <div id="fight-announcement">FIGHT!</div>
+      
+      <div id="controls-hint">
+        <span>[A][D] Move</span>
+        <span>[W] Jump</span>
+        <span>[J] Punch</span>
+        <span>[K] Kick</span>
+        <span>[L] Special Skill</span>
+        <span>[I] Block</span>
+      </div>
+    </div>
+
+    <!-- Start Menu Screen -->
+    <div id="start-screen" class="screen-overlay active">
+      <div class="overlay-content">
+        <h1 class="game-title">SHADOW<br><span class="accent-text">FIGHTER</span></h1>
+        <p class="game-subtitle">The Silhouette Neon Trials</p>
+        <button id="btn-start" class="btn btn-primary">ENTER THE SHADOWS</button>
+        <button id="btn-instructions" class="btn btn-secondary">HOW TO PLAY</button>
+      </div>
+    </div>
+
+    <!-- Instructions Overlay -->
+    <div id="instructions-screen" class="screen-overlay hidden">
+      <div class="overlay-content medium-width">
+        <h2 class="section-title">CONTROL MANIFESTO</h2>
+        <div class="controls-grid">
+          <div class="control-row">
+            <span class="control-key">A / D</span>
+            <span class="control-desc">Move Left / Right</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">W</span>
+            <span class="control-desc">Jump (Double jump available)</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">J</span>
+            <span class="control-desc">Light Punch (Quick attack, low damage)</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">K</span>
+            <span class="control-desc">Heavy Kick (Slower attack, high knockback)</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">L</span>
+            <span class="control-desc">Special Energy Dash (Costs 50 EN, hits multiple times)</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">I</span>
+            <span class="control-desc">Block (Reduces incoming damage by 85%)</span>
+          </div>
+        </div>
+        <button id="btn-back-to-menu" class="btn btn-secondary">BACK TO MENU</button>
+      </div>
+    </div>
+
+    <!-- Level Map Selection Screen -->
+    <div id="map-screen" class="screen-overlay hidden">
+      <div class="overlay-content wide-width">
+        <h2 class="section-title">CHOOSE YOUR TRIAL</h2>
+        <div style="margin-bottom: 20px; font-family: 'Orbitron', sans-serif; font-size: 0.95rem; display: flex; gap: 20px;">
+          <span>SCORE: <span id="map-score" class="accent-text">0</span></span>
+          <span>GOLD: <span id="map-gold" style="color: #ffa200;">0</span></span>
+        </div>
+        <p class="map-desc">Defeat the 10 guardians of the shadow realm to claim ultimate mastery.</p>
+        
+        <div id="levels-container">
+          <!-- Dynamically populated, or statically written for cool layouts -->
+          <div class="level-node active" data-level="1">
+            <div class="level-num">1</div>
+            <div class="level-info">
+              <span class="level-name">The Recruit</span>
+              <span class="level-status">UNLOCKED</span>
+            </div>
+          </div>
+          <!-- Other nodes will be generated/updated in JS -->
+        </div>
+
+        <button id="btn-fight" class="btn btn-primary btn-glow hidden">COMMENCE DUEL</button>
+      </div>
+    </div>
+
+    <!-- Upgrade / Stat Allocation Screen -->
+    <div id="upgrade-screen" class="screen-overlay hidden">
+      <div class="overlay-content medium-width">
+        <h2 class="section-title">SHADOW SHARD UPGRADES</h2>
+        <p class="upgrade-points-desc">You have <span id="upgrade-gold" style="color: #ffa200; font-weight: 700;">0</span> Gold Shards!</p>
+        
+        <div class="upgrades-list">
+          <!-- Upgrade Option 1: Max HP -->
+          <div class="upgrade-item" data-stat="hp">
+            <div class="upgrade-details">
+              <span class="upgrade-name">Vigor of the Void</span>
+              <span class="upgrade-desc">Increases Maximum Health (+25 HP)</span>
+              <span class="upgrade-level">Lv. <span id="stat-lvl-hp">0</span></span>
+            </div>
+            <button class="btn btn-upgrade" data-stat="hp" id="btn-up-hp">+ 100g</button>
+          </div>
+
+          <!-- Upgrade Option 2: Attack Power -->
+          <div class="upgrade-item" data-stat="atk">
+            <div class="upgrade-details">
+              <span class="upgrade-name">Edge of Darkness</span>
+              <span class="upgrade-desc">Increases Attack Damage (+15%)</span>
+              <span class="upgrade-level">Lv. <span id="stat-lvl-atk">0</span></span>
+            </div>
+            <button class="btn btn-upgrade" data-stat="atk" id="btn-up-atk">+ 100g</button>
+          </div>
+
+          <!-- Upgrade Option 3: Speed -->
+          <div class="upgrade-item" data-stat="spd">
+            <div class="upgrade-details">
+              <span class="upgrade-name">Phantom Sprint</span>
+              <span class="upgrade-desc">Increases Movement and Attack Speed (+8%)</span>
+              <span class="upgrade-level">Lv. <span id="stat-lvl-spd">0</span></span>
+            </div>
+            <button class="btn btn-upgrade" data-stat="spd" id="btn-up-spd">+ 100g</button>
+          </div>
+
+          <!-- Upgrade Option 4: Energy recovery -->
+          <div class="upgrade-item" data-stat="eng">
+            <div class="upgrade-details">
+              <span class="upgrade-name">Soul Channeler</span>
+              <span class="upgrade-desc">Increases Energy Recovery per Second (+25%)</span>
+              <span class="upgrade-level">Lv. <span id="stat-lvl-eng">0</span></span>
+            </div>
+            <button class="btn btn-upgrade" data-stat="eng" id="btn-up-eng">+ 100g</button>
+          </div>
+        </div>
+
+        <button id="btn-upgrade-done" class="btn btn-primary">PROCEED TO TRIAL</button>
+      </div>
+    </div>
+
+    <!-- Battle Win / Level Completed Overlay -->
+    <div id="victory-screen" class="screen-overlay hidden">
+      <div class="overlay-content">
+        <h2 class="victory-title accent-text">VICTORY</h2>
+        <p class="victory-desc">Guardian defeated. Your shadow grows stronger.</p>
+        <div id="rewards-panel">
+          <p style="margin-bottom: 8px;">Round Score: <span id="victory-round-score" class="accent-text">0</span></p>
+          <p style="margin-bottom: 8px;">Round Gold: <span id="victory-round-gold" style="color: #ffa200; font-weight: 700;">+0</span></p>
+          <p>Total Gold: <span id="victory-total-gold" style="color: #ffa200;">0</span></p>
+        </div>
+        <button id="btn-claim-rewards" class="btn btn-primary">UPGRADE FIGHTER</button>
+      </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-screen" class="screen-overlay hidden">
+      <div class="overlay-content">
+        <h2 class="gameover-title">DEFEATED</h2>
+        <p class="gameover-desc">Your light has been extinguished in the shadow realm.</p>
+        <div style="margin-bottom: 25px; font-family: 'Orbitron', sans-serif;">
+          <p>Final Score: <span id="gameover-score" class="accent-text">0</span></p>
+        </div>
+        <button id="btn-retry" class="btn btn-primary btn-glow">RETRY DUEL</button>
+        <button id="btn-gameover-map" class="btn btn-secondary">RETREAT TO MAP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="assets.js"></script>
+  <script src="particles.js"></script>
+  <script src="fighter.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
