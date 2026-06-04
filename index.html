@@ -33,6 +33,10 @@
                 <span class="hud-bar-label">EN</span>
                 <div class="hud-bar energy-bar"><div id="player-energy" class="bar-fill energy-fill"></div></div>
               </div>
+              <div class="hud-bar-wrapper">
+                <span class="hud-bar-label">ST</span>
+                <div class="hud-bar stamina-bar"><div id="player-stamina" class="bar-fill stamina-fill"></div></div>
+              </div>
             </div>
           </div>
         </div>
@@ -58,6 +62,10 @@
               <div class="hud-bar-wrapper reverse">
                 <span class="hud-bar-label">HP</span>
                 <div class="hud-bar health-bar"><div id="enemy-health" class="bar-fill health-fill enemy-health-fill"></div></div>
+              </div>
+              <div class="hud-bar-wrapper reverse">
+                <span class="hud-bar-label">ST</span>
+                <div class="hud-bar stamina-bar"><div id="enemy-stamina" class="bar-fill stamina-fill enemy-stamina-fill"></div></div>
               </div>
             </div>
           </div>
@@ -125,7 +133,7 @@
           </div>
           <div class="control-row">
             <span class="control-key">J</span>
-            <span class="control-desc">Light Punch (Quick attack, low damage)</span>
+            <span class="control-desc">Light Punch (Quick attack, low stamina cost)</span>
           </div>
           <div class="control-row">
             <span class="control-key">Space / Q</span>
@@ -133,7 +141,7 @@
           </div>
           <div class="control-row">
             <span class="control-key">K</span>
-            <span class="control-desc">Heavy Kick (Slower attack, high knockback)</span>
+            <span class="control-desc">Heavy Kick (Slower, high knockback, high stamina cost)</span>
           </div>
           <div class="control-row">
             <span class="control-key">L</span>
@@ -220,7 +228,7 @@
           <div class="upgrade-item" data-stat="eng">
             <div class="upgrade-details">
               <span class="upgrade-name">Soul Channeler</span>
-              <span class="upgrade-desc">Increases Energy Recovery per Second (+25%)</span>
+              <span class="upgrade-desc">Increases Energy and Stamina Recovery (+25%)</span>
               <span class="upgrade-level">Lv. <span id="stat-lvl-eng">0</span></span>
             </div>
             <button class="btn btn-upgrade" data-stat="eng" id="btn-up-eng">+ 100g</button>

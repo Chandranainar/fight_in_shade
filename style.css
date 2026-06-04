@@ -343,6 +343,17 @@ canvas {
   margin-bottom: 4px;
 }
 
+.level-style {
+  max-width: 112px;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .level-status {
   font-family: 'Orbitron', sans-serif;
   font-size: 0.65rem;
@@ -609,6 +620,15 @@ canvas {
 .energy-fill {
   background: linear-gradient(90deg, #7b2cbf, #9d4edd);
   box-shadow: 0 0 8px rgba(123, 44, 191, 0.6);
+}
+
+.stamina-fill {
+  background: linear-gradient(90deg, #ffa200, #ffd166);
+  box-shadow: 0 0 8px rgba(255, 162, 0, 0.45);
+}
+
+.enemy-stamina-fill {
+  background: linear-gradient(90deg, #f77f00, #fcbf49);
 }
 
 /* Center HUD info: Timer and level name */
@@ -896,6 +916,11 @@ canvas {
     font-size: 0.75rem;
   }
 
+  .level-style {
+    max-width: 135px;
+    font-size: 0.58rem;
+  }
+
   .upgrade-item,
   .control-row {
     gap: 12px;
@@ -936,6 +961,11 @@ canvas {
 
   .hud-stat-bar-container {
     width: 126px;
+    gap: 4px;
+  }
+
+  .hud-bar {
+    height: 8px;
   }
 
   #hud-center-info {

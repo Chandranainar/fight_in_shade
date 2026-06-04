@@ -37,6 +37,8 @@ class GameEngine {
     this.comboCount = 0;
     this.comboTimer = 0;
     this.hitStopFrames = 0;
+    this.feedbackCooldown = 0;
+    this.impactFlash = { life: 0, maxLife: 0, color: "#ffffff" };
     this.time = 0; // global frames ticker for animated assets
 
     // Input States
@@ -44,16 +46,16 @@ class GameEngine {
 
     // 10 Level database config
     this.levelDatabase = {
-      1: { name: "The Recruit", weapon: "fists", maxHp: 85, color: "#111116", eyeColor: "#ffa200", blockRate: 0.12, speed: 0.75, decisionInterval: 45 },
-      2: { name: "Shadow Bandit", weapon: "fists", maxHp: 100, color: "#0d0d12", eyeColor: "#ff5e00", blockRate: 0.22, speed: 0.85, decisionInterval: 35 },
-      3: { name: "Shield Guard", weapon: "katana", maxHp: 120, color: "#080b10", eyeColor: "#00d4ff", blockRate: 0.65, speed: 0.70, decisionInterval: 30 },
-      4: { name: "Blade Acolyte", weapon: "katana", maxHp: 130, color: "#0b0810", eyeColor: "#b200ff", blockRate: 0.38, speed: 1.00, decisionInterval: 24 },
-      5: { name: "The Wind Monk", weapon: "katana", maxHp: 140, color: "#08100d", eyeColor: "#00ffb7", blockRate: 0.48, speed: 1.15, decisionInterval: 18 },
-      6: { name: "The Fire Fist", weapon: "claws", maxHp: 155, color: "#150808", eyeColor: "#ff003c", blockRate: 0.32, speed: 1.10, decisionInterval: 16 },
-      7: { name: "Spear Master", weapon: "spear", maxHp: 170, color: "#0f1015", eyeColor: "#22ff00", blockRate: 0.45, speed: 0.90, decisionInterval: 22 },
-      8: { name: "Shadow Assassin", weapon: "claws", maxHp: 190, color: "#08050e", eyeColor: "#ff00bf", blockRate: 0.52, speed: 1.25, decisionInterval: 14 },
-      9: { name: "Demon Warrior", weapon: "shadow_blade", maxHp: 230, color: "#05020c", eyeColor: "#7e00ff", blockRate: 0.40, speed: 1.05, decisionInterval: 18 },
-      10: { name: "Shadow Overlord", weapon: "shadow_blade", maxHp: 320, color: "#020005", eyeColor: "#ff0055", blockRate: 0.70, speed: 1.20, decisionInterval: 11 }
+      1: { name: "The Recruit", weapon: "fists", archetype: "Balanced", maxHp: 85, color: "#111116", eyeColor: "#ffa200", blockRate: 0.12, speed: 0.75, decisionInterval: 45, lightRate: 0.55, heavyRate: 0.18, specialRate: 0.04 },
+      2: { name: "Shadow Bandit", weapon: "fists", archetype: "Brawler", maxHp: 100, color: "#0d0d12", eyeColor: "#ff5e00", blockRate: 0.22, speed: 0.85, decisionInterval: 35, lightRate: 0.62, heavyRate: 0.18, retreatRate: 0.08 },
+      3: { name: "Shield Guard", weapon: "katana", archetype: "Defender", maxHp: 120, color: "#080b10", eyeColor: "#00d4ff", blockRate: 0.65, speed: 0.70, decisionInterval: 30, lightRate: 0.28, heavyRate: 0.32, retreatRate: 0.05 },
+      4: { name: "Blade Acolyte", weapon: "katana", archetype: "Duelist", maxHp: 130, color: "#0b0810", eyeColor: "#b200ff", blockRate: 0.38, speed: 1.00, decisionInterval: 24, lightRate: 0.42, heavyRate: 0.30, specialRate: 0.12 },
+      5: { name: "The Wind Monk", weapon: "katana", archetype: "Counter", maxHp: 140, color: "#08100d", eyeColor: "#00ffb7", blockRate: 0.48, speed: 1.15, decisionInterval: 18, dodgeRate: 0.36, lightRate: 0.46, heavyRate: 0.20, retreatRate: 0.18 },
+      6: { name: "The Fire Fist", weapon: "claws", archetype: "Pressure", maxHp: 155, color: "#150808", eyeColor: "#ff003c", blockRate: 0.32, speed: 1.10, decisionInterval: 16, lightRate: 0.68, heavyRate: 0.16, specialRate: 0.16 },
+      7: { name: "Spear Master", weapon: "spear", archetype: "Zoner", maxHp: 170, color: "#0f1015", eyeColor: "#22ff00", blockRate: 0.45, speed: 0.90, decisionInterval: 22, preferredRange: 135, retreatRange: 78, retreatRate: 0.36, lightRate: 0.34, heavyRate: 0.34 },
+      8: { name: "Shadow Assassin", weapon: "claws", archetype: "Assassin", maxHp: 190, color: "#08050e", eyeColor: "#ff00bf", blockRate: 0.52, speed: 1.25, decisionInterval: 14, dodgeRate: 0.42, lightRate: 0.64, heavyRate: 0.12, specialRate: 0.18, retreatRate: 0.20 },
+      9: { name: "Demon Warrior", weapon: "shadow_blade", archetype: "Bruiser", maxHp: 230, color: "#05020c", eyeColor: "#7e00ff", blockRate: 0.40, speed: 1.05, decisionInterval: 18, lightRate: 0.30, heavyRate: 0.42, specialRate: 0.16 },
+      10: { name: "Shadow Overlord", weapon: "shadow_blade", archetype: "Final Boss", maxHp: 320, color: "#020005", eyeColor: "#ff0055", blockRate: 0.70, speed: 1.20, decisionInterval: 11, dodgeRate: 0.40, lightRate: 0.36, heavyRate: 0.34, specialRate: 0.22, retreatRate: 0.14 }
     };
 
     this.loadProgress();
@@ -84,19 +86,19 @@ class GameEngine {
       // Perform one-off actions on press down (avoid continuous repeat)
       if (this.state === "PLAYING" && this.player && !this.player.isDead && !e.repeat) {
         if (key === "w" || key === "arrowup") {
-          this.player.jump();
+          this.handlePlayerAction(this.player.jump());
         }
         if (key === "j" || key === "z") {
-          this.player.attackLight(this.opponent);
+          this.handlePlayerAction(this.player.attackLight(this.opponent));
         }
         if (key === "k" || key === "x") {
-          this.player.attackHeavy(this.opponent);
+          this.handlePlayerAction(this.player.attackHeavy(this.opponent));
         }
         if (key === "l" || key === "c") {
-          this.player.attackSpecial(this.opponent);
+          this.handlePlayerAction(this.player.attackSpecial(this.opponent));
         }
         if (key === " " || key === "q") {
-          this.player.dodge(this.getPlayerMoveDirection());
+          this.handlePlayerAction(this.player.dodge(this.getPlayerMoveDirection()));
         }
       }
     });
@@ -232,12 +234,20 @@ class GameEngine {
 
     if (!active || this.state !== "PLAYING" || !this.player || this.player.isDead) return;
 
-    if (control === "jump") this.player.jump();
-    if (control === "dodge") this.player.dodge(this.getPlayerMoveDirection());
-    if (control === "light") this.player.attackLight(this.opponent);
-    if (control === "heavy") this.player.attackHeavy(this.opponent);
-    if (control === "special") this.player.attackSpecial(this.opponent);
-    if (control === "block") this.player.block(true);
+    if (control === "jump") this.handlePlayerAction(this.player.jump());
+    if (control === "dodge") this.handlePlayerAction(this.player.dodge(this.getPlayerMoveDirection()));
+    if (control === "light") this.handlePlayerAction(this.player.attackLight(this.opponent));
+    if (control === "heavy") this.handlePlayerAction(this.player.attackHeavy(this.opponent));
+    if (control === "special") this.handlePlayerAction(this.player.attackSpecial(this.opponent));
+    if (control === "block") this.handlePlayerAction(this.player.block(true));
+  }
+
+  handlePlayerAction(success) {
+    if (success || !this.player || this.feedbackCooldown > 0) return;
+    if (this.player.actionDeniedReason === "stamina") {
+      this.spawnStatusText(this.player.x + this.player.width / 2, this.player.y, "LOW STAMINA", "#ffa200");
+      this.feedbackCooldown = 45;
+    }
   }
 
   getPlayerMoveDirection() {
@@ -327,6 +337,7 @@ class GameEngine {
         <div class="level-num">${l}</div>
         <div class="level-info">
           <span class="level-name">${cfg.name}</span>
+          <span class="level-style">${cfg.archetype} - ${cfg.weapon.replace("_", " ")}</span>
           <span class="level-status">${
             this.completedLevels.includes(l) ? "DEFEATED" : (l <= this.unlockedLevels ? "CHALLENGE" : "LOCKED")
           }</span>
@@ -460,7 +471,13 @@ class GameEngine {
         blockRate: Math.min(0.9, cfg.blockRate * (1.0 + (levelNum - 1) * 0.05)),
         decisionInterval: Math.max(8, Math.round(cfg.decisionInterval * (1.0 - (levelNum - 1) * 0.03))),
         speed: cfg.speed * (1.0 + (levelNum - 1) * 0.02),
-        dodgeRate: Math.min(0.38, 0.12 + levelNum * 0.02)
+        dodgeRate: cfg.dodgeRate ?? Math.min(0.38, 0.12 + levelNum * 0.02),
+        preferredRange: cfg.preferredRange || null,
+        retreatRange: cfg.retreatRange || 55,
+        retreatRate: cfg.retreatRate || 0,
+        lightRate: cfg.lightRate,
+        heavyRate: cfg.heavyRate,
+        specialRate: cfg.specialRate
       }
     });
     // Adjust opponent speed multiplier based on configuration
@@ -470,13 +487,13 @@ class GameEngine {
     // Update HUD static info
     document.getElementById("hud-player-name").innerText = this.player.name;
     document.getElementById("hud-enemy-name").innerText = this.opponent.name;
-    document.getElementById("hud-level-title").innerText = `LEVEL ${levelNum}`;
+    document.getElementById("hud-level-title").innerText = `LEVEL ${levelNum} - ${cfg.archetype.toUpperCase()}`;
 
     this.switchState("PLAYING");
 
     // Display FIGHT announcer overlay
     const fightAnnouncer = document.getElementById("fight-announcement");
-    fightAnnouncer.innerText = "ROUND 1";
+    fightAnnouncer.innerText = cfg.archetype.toUpperCase();
     fightAnnouncer.classList.add("show");
     
     // Screenshake for entrance feel
@@ -528,16 +545,42 @@ class GameEngine {
       x: x + (Math.random() - 0.5) * 30,
       y: y - 20,
       text: Math.round(amount),
-      color: isCrit ? "#ff007f" : "#ffffff",
-      size: isCrit ? 22 : 16,
-      life: 40,
-      maxLife: 40
+      color: isCrit ? "#ffdd66" : "#ffffff",
+      size: isCrit ? 26 : 17,
+      life: isCrit ? 48 : 38,
+      maxLife: isCrit ? 48 : 38
+    });
+  }
+
+  spawnStatusText(x, y, text, color = "#ffa200") {
+    this.floatingText.push({
+      x,
+      y: y - 28,
+      text,
+      color,
+      size: 14,
+      life: 42,
+      maxLife: 42
     });
   }
 
   triggerHitStop(type) {
-    const frames = type === "light" ? 3 : (type === "heavy" ? 7 : 5);
+    const frames = type === "light" ? 4 : (type === "heavy" ? 10 : 7);
     this.hitStopFrames = Math.max(this.hitStopFrames, frames);
+  }
+
+  triggerImpactFlash(type, blocked = false) {
+    if (blocked) {
+      this.impactFlash = { life: 5, maxLife: 5, color: "rgba(0, 242, 254, 0.18)" };
+      return;
+    }
+    if (type === "heavy") {
+      this.impactFlash = { life: 8, maxLife: 8, color: "rgba(255, 221, 102, 0.28)" };
+    } else if (type === "special") {
+      this.impactFlash = { life: 7, maxLife: 7, color: "rgba(157, 78, 221, 0.28)" };
+    } else {
+      this.impactFlash = { life: 4, maxLife: 4, color: "rgba(255, 255, 255, 0.16)" };
+    }
   }
 
   triggerCombo() {
@@ -569,6 +612,14 @@ class GameEngine {
       this.player.takeDamage = function(amount, direction, type, particles) {
         origTakeDamage.call(this, amount, direction, type, particles);
         engine.triggerHitStop(type);
+        if (this.lastHitDodged) {
+          engine.spawnStatusText(this.x + this.width/2, this.y, "DODGED", this.eyeColor);
+          return;
+        }
+        if (this.lastHitBlocked && this.guardBreakTimer > 0) {
+          engine.spawnStatusText(this.x + this.width/2, this.y, "GUARD BREAK", "#ffa200");
+        }
+        engine.triggerImpactFlash(type, this.lastHitBlocked);
         engine.spawnDamageNumber(this.x + this.width/2, this.y, this.lastDamageTaken || amount, type === "heavy" || type === "special");
 
         if (!this.lastHitBlocked) {
@@ -588,6 +639,14 @@ class GameEngine {
       this.opponent.takeDamage = function(amount, direction, type, particles) {
         origTakeDamage.call(this, amount, direction, type, particles);
         engine.triggerHitStop(type);
+        if (this.lastHitDodged) {
+          engine.spawnStatusText(this.x + this.width/2, this.y, "DODGED", this.eyeColor);
+          return;
+        }
+        if (this.lastHitBlocked && this.guardBreakTimer > 0) {
+          engine.spawnStatusText(this.x + this.width/2, this.y, "GUARD BREAK", "#ffa200");
+        }
+        engine.triggerImpactFlash(type, this.lastHitBlocked);
         engine.spawnDamageNumber(this.x + this.width/2, this.y, this.lastDamageTaken || amount, type === "heavy" || type === "special");
 
         if (!this.lastHitBlocked) {
@@ -714,10 +773,14 @@ class GameEngine {
     const pHealthPct = Math.max(0, (this.player.hp / this.player.maxHp) * 100);
     const oHealthPct = Math.max(0, (this.opponent.hp / this.opponent.maxHp) * 100);
     const pEnergyPct = Math.max(0, (this.player.energy / this.player.maxEnergy) * 100);
+    const pStaminaPct = Math.max(0, (this.player.stamina / this.player.maxStamina) * 100);
+    const oStaminaPct = Math.max(0, (this.opponent.stamina / this.opponent.maxStamina) * 100);
 
     document.getElementById("player-health").style.width = `${pHealthPct}%`;
     document.getElementById("enemy-health").style.width = `${oHealthPct}%`;
     document.getElementById("player-energy").style.width = `${pEnergyPct}%`;
+    document.getElementById("player-stamina").style.width = `${pStaminaPct}%`;
+    document.getElementById("enemy-stamina").style.width = `${oStaminaPct}%`;
 
     // Dynamic HUD Score and Gold values
     document.getElementById("hud-score").innerText = this.score;
@@ -758,9 +821,21 @@ class GameEngine {
       this.ctx.shadowBlur = 8;
       this.ctx.shadowColor = ft.color;
       this.ctx.textAlign = "center";
-      this.ctx.fillText(ft.text, ft.x, ft.y);
+      this.ctx.fillText(typeof ft.text === "number" ? Math.round(ft.text) : ft.text, ft.x, ft.y);
     });
     this.ctx.restore();
+  }
+
+  drawImpactFlash() {
+    if (this.impactFlash.life <= 0) return;
+
+    const alpha = this.impactFlash.life / this.impactFlash.maxLife;
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    this.ctx.fillStyle = this.impactFlash.color;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+    this.impactFlash.life--;
   }
 
   /**
@@ -768,6 +843,7 @@ class GameEngine {
    */
   tick() {
     this.time++;
+    if (this.feedbackCooldown > 0) this.feedbackCooldown--;
 
     // Calculate delta time if we need frames cap, but simple tick is enough for standard Canvas
     if (this.state === "PLAYING" && this.hitStopFrames <= 0) {
@@ -822,6 +898,8 @@ class GameEngine {
     this.assets.drawGround(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel);
 
     this.ctx.restore(); // Restore screenshake translation
+
+    this.drawImpactFlash();
 
     requestAnimationFrame(() => this.tick());
   }

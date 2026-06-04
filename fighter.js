@@ -30,12 +30,15 @@ class Fighter {
     this.hp = maxHp;
     this.maxEnergy = 100;
     this.energy = 0;
+    this.maxStamina = 100;
+    this.stamina = this.maxStamina;
     this.isDead = false;
 
     // Base Multipliers (Upgradeable for Player, scaled by level for Enemies)
     this.speedMult = stats?.speedMult || 1.0;
     this.damageMult = isPlayer ? (stats?.damageMult || 1.0) : damageMult;
     this.energyRecovery = stats?.energyRecovery || 1.0;
+    this.staminaRecovery = stats?.energyRecovery || 1.0;
     this.maxHpBonus = stats?.maxHpBonus || 0;
     
     if (isPlayer) {
@@ -55,11 +58,14 @@ class Fighter {
     // Combat state machine
     this.state = "idle"; // idle, run, jump, fall, dodge, attack_light, attack_heavy, attack_special, block, hit, dead
     this.stateTimer = 0;
+    this.stateMaxTimer = 0;
     this.blockTimer = 0;
     this.hitStunTimer = 0;
     this.specialCooldown = 0;
     this.dodgeCooldown = 0;
     this.invulnerableTimer = 0;
+    this.guardBreakTimer = 0;
+    this.actionDeniedReason = "";
     
     // Animation timing helper
     this.animTime = 0;
@@ -151,6 +157,18 @@ class Fighter {
     if (this.specialCooldown > 0) this.specialCooldown--;
     if (this.dodgeCooldown > 0) this.dodgeCooldown--;
     if (this.invulnerableTimer > 0) this.invulnerableTimer--;
+    if (this.guardBreakTimer > 0) this.guardBreakTimer--;
+
+    if (this.state !== "dead") {
+      let staminaRegen = 0.34 * this.staminaRecovery;
+      if (this.state === "block") staminaRegen = -0.22;
+      if (this.state.startsWith("attack") || this.state === "dodge" || this.state === "hit") staminaRegen = 0.05 * this.staminaRecovery;
+      this.stamina = Math.max(0, Math.min(this.maxStamina, this.stamina + staminaRegen));
+
+      if (this.state === "block" && this.stamina <= 0) {
+        this.breakGuard();
+      }
+    }
 
     // 1. Manage State timers
     if (this.stateTimer > 0) {
@@ -159,6 +177,7 @@ class Fighter {
         // Return to natural state
         if (this.state.startsWith("attack") || this.state === "hit" || this.state === "dodge") {
           this.state = "idle";
+          this.stateMaxTimer = 0;
         }
       }
     }
@@ -246,15 +265,19 @@ class Fighter {
   }
 
   jump() {
-    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return false;
     
     if (this.isGrounded) {
+      if (!this.spendStamina(7, "jump")) return false;
       this.vy = -12.5;
       this.isGrounded = false;
       this.jumpCount = 1;
       this.state = "jump";
       if (this.particles) this.particles.spawnDust(this.x + this.width / 2, this.y + this.height, 5);
+      return true;
     } else if (this.jumpCount < 2) {
+      if (!this.spendStamina(12, "jump")) return false;
       // Double Jump
       this.vy = -10.5;
       this.jumpCount = 2;
@@ -263,7 +286,9 @@ class Fighter {
         // Glowing jump ring
         this.particles.spawnBlockSparks(this.x + this.width / 2, this.y + this.height, this.eyeColor);
       }
+      return true;
     }
+    return false;
   }
 
   stopMove() {
@@ -273,19 +298,27 @@ class Fighter {
   }
 
   block(active) {
-    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return false;
     
     if (active) {
+      if (this.guardBreakTimer > 0 || this.stamina <= 8) {
+        this.actionDeniedReason = "stamina";
+        return false;
+      }
       this.state = "block";
       this.vx *= 0.5; // slow down block sliding
     } else if (this.state === "block") {
       this.state = "idle";
     }
+    return true;
   }
 
   dodge(direction = 0) {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack") || this.state === "block") return;
-    if (!this.isGrounded || this.dodgeCooldown > 0) return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack") || this.state === "block") return false;
+    if (!this.isGrounded || this.dodgeCooldown > 0) return false;
+    if (!this.spendStamina(24, "dodge")) return false;
 
     const dodgeDir = direction !== 0 ? direction : -this.facing;
     this.state = "dodge";
@@ -306,41 +339,66 @@ class Fighter {
         12
       );
     }
+    return true;
   }
 
   attackLight(opponent) {
-    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return false;
+    if (!this.spendStamina(10, "attack")) return false;
 
     this.state = "attack_light";
-    this.stateTimer = Math.max(16, this.lightCooldown / this.speedMult);
+    this.stateTimer = Math.max(14, this.lightCooldown / this.speedMult);
+    this.stateMaxTimer = this.stateTimer;
     
-    // Small forward lunge
-    this.vx += this.facing * 4 * this.speedMult;
+    // Snappy forward step with a visible cut.
+    this.vx += this.facing * 5.2 * this.speedMult;
+    if (this.particles) {
+      this.particles.spawnSlashArc(this.x + this.width / 2 + this.facing * 45, this.y + this.height * 0.45, this.facing, this.trailColor, "light");
+    }
 
     // Check hit on frame window
     setTimeout(() => {
       this.checkCombatCollision(opponent, "light");
-    }, 100);
+    }, 75);
+    return true;
   }
 
   attackHeavy(opponent) {
-    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return false;
+    if (!this.spendStamina(24, "attack")) return false;
 
     this.state = "attack_heavy";
-    this.stateTimer = Math.max(26, this.heavyCooldown / this.speedMult);
+    this.stateTimer = Math.max(30, this.heavyCooldown / this.speedMult);
+    this.stateMaxTimer = this.stateTimer;
     
-    // Stronger forward lunge
-    this.vx += this.facing * 6 * this.speedMult;
+    // Small recoil first, then a committed drive forward at the hit frame.
+    this.vx -= this.facing * 2.2;
+    if (this.particles) {
+      this.particles.spawnDust(this.x + this.width / 2, this.y + this.height, 5);
+    }
+
+    setTimeout(() => {
+      if (this.isDead || this.state !== "attack_heavy") return;
+      this.vx += this.facing * 11 * this.speedMult;
+      if (this.particles) {
+        this.particles.spawnSlashArc(this.x + this.width / 2 + this.facing * 62, this.y + this.height * 0.48, this.facing, this.weaponColor, "heavy");
+      }
+    }, 105);
 
     // Check hit on frame window
     setTimeout(() => {
       this.checkCombatCollision(opponent, "heavy");
-    }, 180);
+    }, 145);
+    return true;
   }
 
   attackSpecial(opponent) {
-    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
-    if (this.energy < 50 || this.specialCooldown > 0) return;
+    this.actionDeniedReason = "";
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return false;
+    if (this.energy < 50 || this.specialCooldown > 0) return false;
+    if (!this.spendStamina(18, "attack")) return false;
 
     this.energy -= 50;
     this.specialCooldown = 180; // 3 seconds at 60fps
@@ -348,6 +406,7 @@ class Fighter {
     
     // Special moves have longer execution window
     this.stateTimer = 40;
+    this.stateMaxTimer = this.stateTimer;
 
     // Fast teleport-dash straight through opponent
     let dashDist = 280 * this.facing;
@@ -374,12 +433,39 @@ class Fighter {
 
     // Physically move the character forward rapidly
     this.vx = this.facing * 20;
+    if (this.particles) {
+      this.particles.spawnSlashArc(this.x + this.width / 2 + this.facing * 70, this.y + this.height * 0.45, this.facing, this.trailColor, "heavy");
+    }
 
     // Hit detection happens multiple times during dash lunge
     for (let h = 0; h < 3; h++) {
       setTimeout(() => {
         if (!this.isDead) this.checkCombatCollision(opponent, "special");
       }, 100 + h * 80);
+    }
+    return true;
+  }
+
+  spendStamina(amount, reason) {
+    if (this.stamina < amount) {
+      this.actionDeniedReason = "stamina";
+      return false;
+    }
+    this.actionDeniedReason = "";
+    this.stamina = Math.max(0, this.stamina - amount);
+    return true;
+  }
+
+  breakGuard() {
+    if (this.state === "dead") return;
+    this.state = "hit";
+    this.stateTimer = 24;
+    this.guardBreakTimer = 70;
+    this.vx = -this.facing * 5;
+    this.vy = -2;
+    if (this.particles) {
+      this.particles.spawnBlockSparks(this.x + this.width / 2, this.y + this.height * 0.45, this.eyeColor);
+      this.particles.shake(6, 10);
     }
   }
 
@@ -442,6 +528,8 @@ class Fighter {
 
     // 1. Calculate Block Reduction
     if (this.state === "block" && !this.isDead) {
+      const staminaCost = Math.max(7, Math.round(amount * 0.35));
+      this.stamina = Math.max(0, this.stamina - staminaCost);
       let blockReduction = 0.85; // 85% damage reduction
       let finalDmg = Math.max(1, Math.round(amount * (1 - blockReduction)));
       this.lastDamageTaken = finalDmg;
@@ -455,7 +543,11 @@ class Fighter {
           this.y + this.height * 0.45,
           this.eyeColor
         );
+        particles.spawnImpactBurst(this.x + this.width / 2, this.y + this.height * 0.45, this.eyeColor, "light");
         particles.shake(2, 6);
+      }
+      if (this.stamina <= 0 && this.hp > 0) {
+        this.breakGuard();
       }
       if (this.hp <= 0) {
         this.isDead = true;
@@ -473,12 +565,12 @@ class Fighter {
     
     // Trigger HIT Stun
     this.state = "hit";
-    let stunDuration = type === "light" ? 15 : (type === "heavy" ? 25 : 30);
+    let stunDuration = type === "light" ? 16 : (type === "heavy" ? 28 : 32);
     this.stateTimer = stunDuration;
     
     // Knockback
-    let knockbackX = type === "light" ? 4 : (type === "heavy" ? 10 : 8);
-    let knockbackY = type === "heavy" ? -5 : (type === "special" ? -2 : 0);
+    let knockbackX = type === "light" ? 5 : (type === "heavy" ? 13 : 10);
+    let knockbackY = type === "heavy" ? -6 : (type === "special" ? -3 : -1);
     
     this.vx = direction * knockbackX;
     this.vy = knockbackY;
@@ -490,9 +582,10 @@ class Fighter {
       
       particles.spawnHitSparks(this.x + this.width / 2, this.y + this.height * 0.4, sparkColor);
       particles.spawnBloodSplatters(this.x + this.width / 2, this.y + this.height * 0.4, bloodColor);
+      particles.spawnImpactBurst(this.x + this.width / 2, this.y + this.height * 0.4, sparkColor, type);
       
-      let shakeForce = type === "light" ? 4 : (type === "heavy" ? 10 : 8);
-      particles.shake(shakeForce, 12);
+      let shakeForce = type === "light" ? 5 : (type === "heavy" ? 13 : 10);
+      particles.shake(shakeForce, type === "heavy" ? 15 : 12);
     }
 
     // Check Death
@@ -516,9 +609,14 @@ class Fighter {
     let randomVal = Math.random();
 
     // 1. Keep track of state
-    if (this.state === "dead" || this.state === "hit" || this.state.startsWith("attack")) return;
+    if (this.state === "dead" || this.state === "hit" || this.state.startsWith("attack") || this.state === "dodge") return;
 
     // React to player special attack by blocking
+    if (this.stamina < 18 && dist < this.atkRange + 30) {
+      this.aiMoveDir = (player.x > this.x) ? -1 : 1;
+      return;
+    }
+
     if (player.state === "attack_heavy" && dist < this.atkRange + 45 && randomVal < (this.ai.dodgeRate || 0.18)) {
       const awayFromPlayer = player.x > this.x ? -1 : 1;
       this.dodge(awayFromPlayer);
@@ -550,7 +648,10 @@ class Fighter {
     }
 
     // Range-based activities
-    if (dist > this.atkRange + 15) {
+    const preferredRange = this.ai.preferredRange || this.atkRange;
+    if (dist < this.ai.retreatRange && randomVal < (this.ai.retreatRate || 0)) {
+      this.aiMoveDir = (player.x > this.x) ? -1 : 1;
+    } else if (dist > preferredRange + 15) {
       // Too far away, run to player
       this.aiMoveDir = (player.x > this.x) ? 1 : -1;
     } else {
@@ -558,13 +659,17 @@ class Fighter {
       this.aiMoveDir = 0;
       this.stopMove();
       
-      if (randomVal < 0.45) {
+      const lightRate = this.ai.lightRate ?? 0.45;
+      const heavyRate = lightRate + (this.ai.heavyRate ?? 0.25);
+      const specialRate = heavyRate + (this.ai.specialRate ?? 0.15);
+
+      if (randomVal < lightRate) {
         // Perform standard light attack
         this.attackLight(player);
-      } else if (randomVal < 0.70) {
+      } else if (randomVal < heavyRate) {
         // Perform heavy attack
         this.attackHeavy(player);
-      } else if (randomVal < 0.85 && this.energy >= 50) {
+      } else if (randomVal < specialRate && this.energy >= 50) {
         // Perform special dash attack
         this.attackSpecial(player);
       } else {
@@ -596,6 +701,8 @@ class Fighter {
     // 1. Position shift and Flip horizontally based on facing direction
     ctx.translate(this.x + this.width / 2, this.y);
     ctx.scale(this.facing, 1);
+
+    this.drawAttackTrail(ctx);
 
     // Render debug boxes if needed, currently just procedural drawing
     this.drawBody(ctx, this.color, false);
@@ -735,6 +842,32 @@ class Fighter {
     this.drawArm(ctx, 14, 6, armR_Angle, fillColor, true, isGhost);
 
     ctx.restore(); // Restore torso rotation
+  }
+
+  drawAttackTrail(ctx) {
+    if (!this.state.startsWith("attack") || this.stateMaxTimer <= 0) return;
+
+    const progress = 1 - Math.max(0, this.stateTimer / this.stateMaxTimer);
+    const isHeavy = this.state === "attack_heavy" || this.state === "attack_special";
+    const alpha = Math.sin(Math.min(1, progress) * Math.PI) * (isHeavy ? 0.45 : 0.3);
+    if (alpha <= 0.02) return;
+
+    ctx.save();
+    ctx.translate(isHeavy ? 24 : 18, 48);
+    ctx.strokeStyle = isHeavy ? this.weaponColor : this.trailColor;
+    ctx.lineWidth = isHeavy ? 10 : 6;
+    ctx.lineCap = "round";
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = isHeavy ? 24 : 16;
+    ctx.shadowColor = isHeavy ? this.weaponColor : this.trailColor;
+    ctx.beginPath();
+    if (isHeavy) {
+      ctx.arc(8, 0, 68, -1.2 + progress * 0.35, 0.85 + progress * 0.35);
+    } else {
+      ctx.arc(4, 0, 50, -0.85 + progress * 0.25, 0.42 + progress * 0.25);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   drawLeg(ctx, startX, startY, angle, color) {

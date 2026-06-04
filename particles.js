@@ -196,6 +196,85 @@ class ParticleSystem {
     }
   }
 
+  spawnSlashArc(x, y, facing, color, type = "light") {
+    const arc = new Particle(x, y, 0, 0, color, type === "heavy" ? 38 : 28, type === "heavy" ? 14 : 10, 1, "slash");
+    arc.facing = facing;
+    arc.type = type;
+    arc.update = function() {
+      this.size += this.type === "heavy" ? 4.8 : 3.4;
+      this.life -= this.decay;
+      this.alpha = Math.max(0, this.life / this.maxLife);
+    };
+    arc.draw = function(ctx) {
+      ctx.save();
+      ctx.globalAlpha = this.alpha;
+      ctx.translate(this.x, this.y);
+      ctx.scale(this.facing, 1);
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.type === "heavy" ? 8 : 5;
+      ctx.lineCap = "round";
+      ctx.shadowBlur = this.type === "heavy" ? 24 : 16;
+      ctx.shadowColor = this.color;
+      ctx.beginPath();
+      if (this.type === "heavy") {
+        ctx.arc(0, 0, this.size, -1.25, 0.75);
+      } else {
+        ctx.arc(0, 0, this.size, -0.85, 0.45);
+      }
+      ctx.stroke();
+
+      ctx.globalAlpha = this.alpha * 0.45;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = this.type === "heavy" ? 3 : 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.72, this.type === "heavy" ? -1.05 : -0.65, this.type === "heavy" ? 0.55 : 0.25);
+      ctx.stroke();
+      ctx.restore();
+    };
+    this.particles.push(arc);
+  }
+
+  spawnImpactBurst(x, y, color, type = "light") {
+    const ring = new Particle(x, y, 0, 0, color, type === "heavy" ? 12 : 8, type === "heavy" ? 13 : 9, 1, "circle");
+    ring.update = function() {
+      this.size += type === "heavy" ? 5 : 3.4;
+      this.life -= this.decay;
+      this.alpha = Math.max(0, this.life / this.maxLife);
+    };
+    ring.draw = function(ctx) {
+      ctx.save();
+      ctx.globalAlpha = this.alpha;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = type === "heavy" ? 4 : 3;
+      ctx.shadowBlur = type === "heavy" ? 22 : 14;
+      ctx.shadowColor = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    };
+    this.particles.push(ring);
+
+    const rays = type === "heavy" ? 10 : 6;
+    for (let i = 0; i < rays; i++) {
+      const angle = (Math.PI * 2 / rays) * i + Math.random() * 0.18;
+      const speed = (type === "heavy" ? 8 : 5) + Math.random() * 3;
+      const p = new Particle(
+        x,
+        y,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        i % 2 === 0 ? "#ffffff" : color,
+        type === "heavy" ? 3 : 2,
+        type === "heavy" ? 16 : 11,
+        1,
+        "line"
+      );
+      p.gravity = 0.08;
+      this.particles.push(p);
+    }
+  }
+
   /**
    * Add a ghost trail silhouette copy of a fighter.
    */
