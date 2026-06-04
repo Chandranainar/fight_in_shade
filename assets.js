@@ -307,6 +307,7 @@ class GameAssets {
       let curY = height;
       let targetY = height * 0.2;
       let segHeight = 45;
+      let segment = 0;
 
       while (curY > targetY) {
         ctx.fillRect(s.x, curY - segHeight + 2, s.w, segHeight - 4);
@@ -314,23 +315,26 @@ class GameAssets {
         ctx.fillRect(s.x - 2, curY - segHeight, s.w + 4, 3);
         
         // Draw leaf clusters on sides
-        if (Math.random() > 0.4) {
-          this.drawBambooLeaves(ctx, s.x + (Math.random() > 0.5 ? s.w : -8), curY - segHeight * 0.5);
+        const leafSeed = Math.sin((s.x + segment * 17) * 12.9898) * 43758.5453;
+        const leafRoll = leafSeed - Math.floor(leafSeed);
+        if (leafRoll > 0.4) {
+          const isRight = leafRoll > 0.68;
+          this.drawBambooLeaves(ctx, s.x + (isRight ? s.w : -8), curY - segHeight * 0.5, isRight);
         }
         
         curY -= segHeight;
+        segment++;
       }
     });
 
     ctx.restore();
   }
 
-  drawBambooLeaves(ctx, x, y) {
+  drawBambooLeaves(ctx, x, y, isRight = true) {
     ctx.save();
     ctx.fillStyle = "#000000";
     ctx.translate(x, y);
     
-    let isRight = Math.random() > 0.5;
     let angle = isRight ? 0.3 : -0.3;
     ctx.rotate(angle);
 

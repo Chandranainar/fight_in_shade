@@ -53,11 +53,13 @@ class Fighter {
     this.facing = isPlayer ? 1 : -1; // 1 = Right, -1 = Left
     
     // Combat state machine
-    this.state = "idle"; // idle, run, jump, fall, attack_light, attack_heavy, attack_special, block, hit, dead
+    this.state = "idle"; // idle, run, jump, fall, dodge, attack_light, attack_heavy, attack_special, block, hit, dead
     this.stateTimer = 0;
     this.blockTimer = 0;
     this.hitStunTimer = 0;
     this.specialCooldown = 0;
+    this.dodgeCooldown = 0;
+    this.invulnerableTimer = 0;
     
     // Animation timing helper
     this.animTime = 0;
@@ -147,13 +149,15 @@ class Fighter {
     }
 
     if (this.specialCooldown > 0) this.specialCooldown--;
+    if (this.dodgeCooldown > 0) this.dodgeCooldown--;
+    if (this.invulnerableTimer > 0) this.invulnerableTimer--;
 
     // 1. Manage State timers
     if (this.stateTimer > 0) {
       this.stateTimer--;
       if (this.stateTimer <= 0) {
         // Return to natural state
-        if (this.state.startsWith("attack") || this.state === "hit") {
+        if (this.state.startsWith("attack") || this.state === "hit" || this.state === "dodge") {
           this.state = "idle";
         }
       }
@@ -196,7 +200,7 @@ class Fighter {
     }
 
     // Face the opponent automatically when not attacking or hit
-    if (opponent && !this.isDead && this.state !== "hit" && !this.state.startsWith("attack")) {
+    if (opponent && !this.isDead && this.state !== "hit" && this.state !== "dodge" && !this.state.startsWith("attack")) {
       this.facing = (opponent.x + opponent.width / 2 > this.x + this.width / 2) ? 1 : -1;
     }
 
@@ -222,7 +226,7 @@ class Fighter {
    * Action methods called by controllers
    */
   move(direction) {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack")) return;
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return;
 
     let speed = 0.8 * this.speedMult;
     this.vx += direction * speed;
@@ -242,7 +246,7 @@ class Fighter {
   }
 
   jump() {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack")) return;
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return;
     
     if (this.isGrounded) {
       this.vy = -12.5;
@@ -269,7 +273,7 @@ class Fighter {
   }
 
   block(active) {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack")) return;
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack")) return;
     
     if (active) {
       this.state = "block";
@@ -279,11 +283,36 @@ class Fighter {
     }
   }
 
-  attackLight(opponent) {
+  dodge(direction = 0) {
     if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack") || this.state === "block") return;
+    if (!this.isGrounded || this.dodgeCooldown > 0) return;
+
+    const dodgeDir = direction !== 0 ? direction : -this.facing;
+    this.state = "dodge";
+    this.stateTimer = 18;
+    this.dodgeCooldown = 48;
+    this.invulnerableTimer = 14;
+    this.vx = dodgeDir * 13 * this.speedMult;
+    this.vy = Math.min(this.vy, -1);
+
+    if (this.particles) {
+      this.particles.spawnDust(this.x + this.width / 2, this.y + this.height, 8);
+      this.particles.addGhostTrail(
+        this.x,
+        this.y,
+        this.facing,
+        (c, col) => this.drawBody(c, col, true),
+        this.trailColor,
+        12
+      );
+    }
+  }
+
+  attackLight(opponent) {
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
 
     this.state = "attack_light";
-    this.stateTimer = Math.max(12, this.lightCooldown / this.speedMult);
+    this.stateTimer = Math.max(16, this.lightCooldown / this.speedMult);
     
     // Small forward lunge
     this.vx += this.facing * 4 * this.speedMult;
@@ -295,10 +324,10 @@ class Fighter {
   }
 
   attackHeavy(opponent) {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack") || this.state === "block") return;
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
 
     this.state = "attack_heavy";
-    this.stateTimer = Math.max(18, this.heavyCooldown / this.speedMult);
+    this.stateTimer = Math.max(26, this.heavyCooldown / this.speedMult);
     
     // Stronger forward lunge
     this.vx += this.facing * 6 * this.speedMult;
@@ -310,7 +339,7 @@ class Fighter {
   }
 
   attackSpecial(opponent) {
-    if (this.state === "hit" || this.state === "dead" || this.state.startsWith("attack") || this.state === "block") return;
+    if (this.state === "hit" || this.state === "dead" || this.state === "dodge" || this.state.startsWith("attack") || this.state === "block") return;
     if (this.energy < 50 || this.specialCooldown > 0) return;
 
     this.energy -= 50;
@@ -359,6 +388,13 @@ class Fighter {
    */
   checkCombatCollision(opponent, type) {
     if (this.isDead || opponent.isDead || opponent.state === "dead") return;
+    if (this.state !== `attack_${type}`) return;
+    if (opponent.invulnerableTimer > 0) {
+      if (this.particles) {
+        this.particles.spawnBlockSparks(opponent.x + opponent.width / 2, opponent.y + opponent.height * 0.55, opponent.eyeColor);
+      }
+      return;
+    }
 
     // Define attack hitbox center relative to fighter position
     let myCenterX = this.x + this.width / 2;
@@ -395,12 +431,22 @@ class Fighter {
 
   takeDamage(amount, direction, type, particles) {
     if (this.isDead) return;
+    this.lastDamageTaken = 0;
+    this.lastHitBlocked = false;
+    this.lastHitDodged = false;
+
+    if (this.invulnerableTimer > 0) {
+      this.lastHitDodged = true;
+      return;
+    }
 
     // 1. Calculate Block Reduction
     if (this.state === "block" && !this.isDead) {
       let blockReduction = 0.85; // 85% damage reduction
       let finalDmg = Math.max(1, Math.round(amount * (1 - blockReduction)));
-      this.hp -= finalDmg;
+      this.lastDamageTaken = finalDmg;
+      this.lastHitBlocked = true;
+      this.hp = Math.max(0, this.hp - finalDmg);
 
       // Spark particles on blocking shield
       if (particles) {
@@ -411,11 +457,19 @@ class Fighter {
         );
         particles.shake(2, 6);
       }
+      if (this.hp <= 0) {
+        this.isDead = true;
+        this.state = "dead";
+        this.vx = direction * 5;
+        this.vy = -4;
+      }
       return;
     }
 
     // 2. Normal hit state
-    this.hp = Math.max(0, this.hp - Math.round(amount));
+    const finalDmg = Math.round(amount);
+    this.lastDamageTaken = finalDmg;
+    this.hp = Math.max(0, this.hp - finalDmg);
     
     // Trigger HIT Stun
     this.state = "hit";
@@ -465,6 +519,13 @@ class Fighter {
     if (this.state === "dead" || this.state === "hit" || this.state.startsWith("attack")) return;
 
     // React to player special attack by blocking
+    if (player.state === "attack_heavy" && dist < this.atkRange + 45 && randomVal < (this.ai.dodgeRate || 0.18)) {
+      const awayFromPlayer = player.x > this.x ? -1 : 1;
+      this.dodge(awayFromPlayer);
+      this.aiMoveDir = 0;
+      return;
+    }
+
     if (player.state === "attack_special" && dist < 300 && randomVal < this.ai.blockRate * 1.5) {
       this.block(true);
       this.isAiBlocking = true;
@@ -528,6 +589,9 @@ class Fighter {
    */
   draw(ctx) {
     ctx.save();
+    if (this.invulnerableTimer > 0 && this.state === "dodge") {
+      ctx.globalAlpha = 0.62 + Math.sin(this.invulnerableTimer) * 0.18;
+    }
 
     // 1. Position shift and Flip horizontally based on facing direction
     ctx.translate(this.x + this.width / 2, this.y);
@@ -579,6 +643,13 @@ class Fighter {
       legR_Angle = 0.1;
       armL_Angle = -0.5;
       armR_Angle = -0.4;
+    } else if (this.state === "dodge") {
+      torsoTilt = -0.55;
+      torsoBob = 7;
+      legL_Angle = -0.75;
+      legR_Angle = 0.7;
+      armL_Angle = -0.25;
+      armR_Angle = -0.55;
     } else if (this.state === "attack_light") {
       torsoTilt = 0.25;
       legL_Angle = 0.4;

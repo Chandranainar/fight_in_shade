@@ -12,7 +12,8 @@ class GameEngine {
     this.particles = new ParticleSystem();
 
     // Game state data
-    this.state = "MENU"; // MENU, MAP, PLAYING, UPGRADE, GAMEOVER, VICTORY
+    this.state = "MENU"; // MENU, MAP, PLAYING, PAUSED, UPGRADE, GAMEOVER, VICTORY
+    this.saveKey = "fightInShadesSaveV2";
     this.currentLevel = 1;
     this.unlockedLevels = 1;
     this.completedLevels = [];
@@ -23,16 +24,7 @@ class GameEngine {
     this.roundGold = 0;
     
     // Player Stats Configuration (Persistent upgrades)
-    this.playerStats = {
-      speedMult: 1.0,
-      damageMult: 1.0,
-      energyRecovery: 1.0,
-      maxHpBonus: 0,
-      hpLevel: 0,
-      atkLevel: 0,
-      spdLevel: 0,
-      engLevel: 0
-    };
+    this.playerStats = this.createDefaultStats();
 
     // Entities
     this.player = null;
@@ -44,6 +36,7 @@ class GameEngine {
     this.timerInterval = null;
     this.comboCount = 0;
     this.comboTimer = 0;
+    this.hitStopFrames = 0;
     this.time = 0; // global frames ticker for animated assets
 
     // Input States
@@ -63,6 +56,8 @@ class GameEngine {
       10: { name: "Shadow Overlord", weapon: "shadow_blade", maxHp: 320, color: "#020005", eyeColor: "#ff0055", blockRate: 0.70, speed: 1.20, decisionInterval: 11 }
     };
 
+    this.loadProgress();
+
     // Binding event listeners
     this.setupEventListeners();
 
@@ -74,30 +69,44 @@ class GameEngine {
   setupEventListeners() {
     // Keyboard inputs
     window.addEventListener("keydown", (e) => {
-      this.keys[e.key.toLowerCase()] = true;
+      const key = e.key.toLowerCase();
+      this.keys[key] = true;
+
+      if ([" ", "arrowup", "arrowleft", "arrowright", "shift"].includes(key)) {
+        e.preventDefault();
+      }
+
+      if ((key === "escape" || key === "p") && !e.repeat) {
+        this.togglePause();
+        return;
+      }
       
       // Perform one-off actions on press down (avoid continuous repeat)
-      if (this.state === "PLAYING" && this.player && !this.player.isDead) {
-        if (e.key === "w" || e.key === "ArrowUp") {
+      if (this.state === "PLAYING" && this.player && !this.player.isDead && !e.repeat) {
+        if (key === "w" || key === "arrowup") {
           this.player.jump();
         }
-        if (e.key === "j" || e.key === "z") {
+        if (key === "j" || key === "z") {
           this.player.attackLight(this.opponent);
         }
-        if (e.key === "k" || e.key === "x") {
+        if (key === "k" || key === "x") {
           this.player.attackHeavy(this.opponent);
         }
-        if (e.key === "l" || e.key === "c") {
+        if (key === "l" || key === "c") {
           this.player.attackSpecial(this.opponent);
+        }
+        if (key === " " || key === "q") {
+          this.player.dodge(this.getPlayerMoveDirection());
         }
       }
     });
 
     window.addEventListener("keyup", (e) => {
-      this.keys[e.key.toLowerCase()] = false;
+      const key = e.key.toLowerCase();
+      this.keys[key] = false;
 
       // Stop blocking if block key is released
-      if (this.state === "PLAYING" && this.player && (e.key === "i" || e.key === "Shift")) {
+      if (this.state === "PLAYING" && this.player && (key === "i" || key === "shift")) {
         this.player.block(false);
       }
     });
@@ -113,6 +122,10 @@ class GameEngine {
     document.getElementById("btn-retry").addEventListener("click", () => this.startDuel(this.currentLevel));
     document.getElementById("btn-gameover-map").addEventListener("click", () => this.switchState("MAP"));
     document.getElementById("btn-fight").addEventListener("click", () => this.startDuel(this.currentLevel));
+    document.getElementById("btn-pause").addEventListener("click", () => this.togglePause());
+    document.getElementById("btn-resume").addEventListener("click", () => this.togglePause());
+    document.getElementById("btn-pause-map").addEventListener("click", () => this.switchState("MAP"));
+    document.getElementById("btn-reset-progress").addEventListener("click", () => this.resetProgress());
 
     // Stat Upgrade Buttons
     const upgradeBtns = document.querySelectorAll(".btn-upgrade");
@@ -122,13 +135,130 @@ class GameEngine {
         this.applyUpgrade(stat);
       });
     });
+
+    this.setupTouchControls();
+  }
+
+  createDefaultStats() {
+    return {
+      speedMult: 1.0,
+      damageMult: 1.0,
+      energyRecovery: 1.0,
+      maxHpBonus: 0,
+      hpLevel: 0,
+      atkLevel: 0,
+      spdLevel: 0,
+      engLevel: 0
+    };
+  }
+
+  loadProgress() {
+    try {
+      const rawSave = localStorage.getItem(this.saveKey);
+      if (!rawSave) return;
+
+      const save = JSON.parse(rawSave);
+      this.unlockedLevels = Math.min(10, Math.max(1, Number(save.unlockedLevels) || 1));
+      this.currentLevel = Math.min(this.unlockedLevels, Math.max(1, Number(save.currentLevel) || 1));
+      this.completedLevels = Array.isArray(save.completedLevels)
+        ? save.completedLevels.filter(level => Number.isInteger(level) && level >= 1 && level <= 10)
+        : [];
+      this.score = Math.max(0, Number(save.score) || 0);
+      this.gold = Math.max(0, Number(save.gold) || 0);
+      this.playerStats = { ...this.createDefaultStats(), ...(save.playerStats || {}) };
+    } catch (error) {
+      console.warn("Unable to load saved progress", error);
+    }
+  }
+
+  saveProgress() {
+    try {
+      localStorage.setItem(this.saveKey, JSON.stringify({
+        currentLevel: this.currentLevel,
+        unlockedLevels: this.unlockedLevels,
+        completedLevels: this.completedLevels,
+        score: this.score,
+        gold: this.gold,
+        playerStats: this.playerStats
+      }));
+    } catch (error) {
+      console.warn("Unable to save progress", error);
+    }
+  }
+
+  resetProgress() {
+    const confirmed = window.confirm("Reset campaign progress, score, gold, and upgrades?");
+    if (!confirmed) return;
+
+    localStorage.removeItem(this.saveKey);
+    this.currentLevel = 1;
+    this.unlockedLevels = 1;
+    this.completedLevels = [];
+    this.score = 0;
+    this.gold = 0;
+    this.playerStats = this.createDefaultStats();
+    this.switchState("MAP");
+  }
+
+  setupTouchControls() {
+    document.querySelectorAll("[data-control]").forEach(btn => {
+      const control = btn.getAttribute("data-control");
+      const start = (event) => {
+        event.preventDefault();
+        btn.classList.add("pressed");
+        this.handleTouchControl(control, true);
+      };
+      const end = (event) => {
+        event.preventDefault();
+        btn.classList.remove("pressed");
+        this.handleTouchControl(control, false);
+      };
+
+      btn.addEventListener("pointerdown", start);
+      btn.addEventListener("pointerup", end);
+      btn.addEventListener("pointercancel", end);
+      btn.addEventListener("pointerleave", end);
+    });
+  }
+
+  handleTouchControl(control, active) {
+    if (control === "left") this.keys.arrowleft = active;
+    if (control === "right") this.keys.arrowright = active;
+
+    if (!active && control === "block" && this.player) {
+      this.player.block(false);
+      return;
+    }
+
+    if (!active || this.state !== "PLAYING" || !this.player || this.player.isDead) return;
+
+    if (control === "jump") this.player.jump();
+    if (control === "dodge") this.player.dodge(this.getPlayerMoveDirection());
+    if (control === "light") this.player.attackLight(this.opponent);
+    if (control === "heavy") this.player.attackHeavy(this.opponent);
+    if (control === "special") this.player.attackSpecial(this.opponent);
+    if (control === "block") this.player.block(true);
+  }
+
+  getPlayerMoveDirection() {
+    if (this.keys["a"] || this.keys["arrowleft"]) return -1;
+    if (this.keys["d"] || this.keys["arrowright"]) return 1;
+    return 0;
+  }
+
+  togglePause() {
+    if (this.state === "PLAYING") {
+      this.switchState("PAUSED");
+    } else if (this.state === "PAUSED") {
+      this.switchState("PLAYING");
+    }
   }
 
   switchState(newState) {
     this.state = newState;
 
     // Hide all UI overlays first
-    const overlays = ["start-screen", "instructions-screen", "map-screen", "upgrade-screen", "victory-screen", "gameover-screen", "hud-overlay"];
+    const overlays = ["start-screen", "instructions-screen", "map-screen", "upgrade-screen", "victory-screen", "gameover-screen", "pause-screen", "hud-overlay"];
     overlays.forEach(id => {
       document.getElementById(id).classList.add("hidden");
       document.getElementById(id).classList.remove("active");
@@ -160,6 +290,11 @@ class GameEngine {
     } else if (newState === "PLAYING") {
       document.getElementById("hud-overlay").classList.add("active");
       document.getElementById("hud-overlay").classList.remove("hidden");
+    } else if (newState === "PAUSED") {
+      document.getElementById("hud-overlay").classList.add("active");
+      document.getElementById("hud-overlay").classList.remove("hidden");
+      document.getElementById("pause-screen").classList.add("active");
+      document.getElementById("pause-screen").classList.remove("hidden");
     }
   }
 
@@ -180,11 +315,12 @@ class GameEngine {
         node.classList.add("completed");
       } else if (l <= this.unlockedLevels) {
         node.classList.add("active");
-        if (this.currentLevel === l) {
-          node.style.borderColor = "var(--white-glow)";
-        }
       } else {
         node.classList.add("locked");
+      }
+
+      if (this.currentLevel === l && l <= this.unlockedLevels) {
+        node.classList.add("selected");
       }
 
       node.innerHTML = `
@@ -201,6 +337,7 @@ class GameEngine {
         node.addEventListener("click", () => {
           // Select this level
           this.currentLevel = l;
+          this.saveProgress();
           // Redraw map to show selection border
           this.renderLevelMap();
         });
@@ -267,6 +404,7 @@ class GameEngine {
     }
 
     this.updateUpgradeScreen();
+    this.saveProgress();
   }
 
   startDuel(levelNum) {
@@ -321,7 +459,8 @@ class GameEngine {
       aiConfig: {
         blockRate: Math.min(0.9, cfg.blockRate * (1.0 + (levelNum - 1) * 0.05)),
         decisionInterval: Math.max(8, Math.round(cfg.decisionInterval * (1.0 - (levelNum - 1) * 0.03))),
-        speed: cfg.speed * (1.0 + (levelNum - 1) * 0.02)
+        speed: cfg.speed * (1.0 + (levelNum - 1) * 0.02),
+        dodgeRate: Math.min(0.38, 0.12 + levelNum * 0.02)
       }
     });
     // Adjust opponent speed multiplier based on configuration
@@ -396,6 +535,11 @@ class GameEngine {
     });
   }
 
+  triggerHitStop(type) {
+    const frames = type === "light" ? 3 : (type === "heavy" ? 7 : 5);
+    this.hitStopFrames = Math.max(this.hitStopFrames, frames);
+  }
+
   triggerCombo() {
     this.comboCount++;
     this.comboTimer = 90; // combo window is 1.5 seconds at 60fps
@@ -424,10 +568,13 @@ class GameEngine {
       const origTakeDamage = this.player.takeDamage;
       this.player.takeDamage = function(amount, direction, type, particles) {
         origTakeDamage.call(this, amount, direction, type, particles);
-        engine.spawnDamageNumber(this.x + this.width/2, this.y, amount, type === "heavy" || type === "special");
-        // Break combo count if player gets hit
-        engine.comboCount = 0;
-        document.getElementById("combo-container").classList.add("hidden");
+        engine.triggerHitStop(type);
+        engine.spawnDamageNumber(this.x + this.width/2, this.y, this.lastDamageTaken || amount, type === "heavy" || type === "special");
+
+        if (!this.lastHitBlocked) {
+          engine.comboCount = 0;
+          document.getElementById("combo-container").classList.add("hidden");
+        }
 
         if (this.isDead) {
           engine.handleBattleLose();
@@ -440,9 +587,12 @@ class GameEngine {
       const origTakeDamage = this.opponent.takeDamage;
       this.opponent.takeDamage = function(amount, direction, type, particles) {
         origTakeDamage.call(this, amount, direction, type, particles);
-        engine.spawnDamageNumber(this.x + this.width/2, this.y, amount, type === "heavy" || type === "special");
-        // Increase player combo count
-        engine.triggerCombo();
+        engine.triggerHitStop(type);
+        engine.spawnDamageNumber(this.x + this.width/2, this.y, this.lastDamageTaken || amount, type === "heavy" || type === "special");
+
+        if (!this.lastHitBlocked) {
+          engine.triggerCombo();
+        }
 
         // Award Gold and Score dynamically on hits
         let baseScore = 10;
@@ -453,6 +603,10 @@ class GameEngine {
         } else if (type === "special") {
           baseScore = 15;
           baseGold = 2;
+        }
+        if (this.lastHitBlocked) {
+          baseScore = 4;
+          baseGold = 0;
         }
 
         let comboMultiplier = Math.max(1, Math.floor(engine.comboCount / 3));
@@ -507,6 +661,7 @@ class GameEngine {
         if (this.currentLevel === this.unlockedLevels && this.unlockedLevels < 10) {
           this.unlockedLevels++;
         }
+        this.saveProgress();
 
         // Show updated metrics on victory screen
         document.getElementById("victory-round-score").innerText = this.roundScore;
@@ -528,6 +683,8 @@ class GameEngine {
 
     setTimeout(() => {
       fightAnnouncer.classList.remove("show");
+      document.getElementById("gameover-score").innerText = this.score;
+      this.saveProgress();
       this.switchState("GAMEOVER");
     }, 2000);
   }
@@ -551,7 +708,7 @@ class GameEngine {
   }
 
   updateHUD() {
-    if (this.state !== "PLAYING" || !this.player || !this.opponent) return;
+    if ((this.state !== "PLAYING" && this.state !== "PAUSED") || !this.player || !this.opponent) return;
 
     // Health percentages
     const pHealthPct = Math.max(0, (this.player.hp / this.player.maxHp) * 100);
@@ -567,7 +724,7 @@ class GameEngine {
     document.getElementById("hud-gold").innerText = this.gold;
 
     // Special skill status indicators (glowing active state)
-    const specialKey = document.querySelector("#controls-hint span:nth-child(5)");
+    const specialKey = document.querySelector("#controls-hint .control-special");
     if (specialKey) {
       if (this.player.energy >= 50 && this.player.specialCooldown <= 0) {
         specialKey.style.color = "var(--purple-glow)";
@@ -613,13 +770,15 @@ class GameEngine {
     this.time++;
 
     // Calculate delta time if we need frames cap, but simple tick is enough for standard Canvas
-    this.processKeyboardInputs();
+    if (this.state === "PLAYING" && this.hitStopFrames <= 0) {
+      this.processKeyboardInputs();
+    }
 
     // Combat damage listeners verification
     this.interceptCombatHits();
 
     // Combo timer decrement
-    if (this.comboTimer > 0) {
+    if (this.state === "PLAYING" && this.hitStopFrames <= 0 && this.comboTimer > 0) {
       this.comboTimer--;
       if (this.comboTimer <= 0) {
         this.comboCount = 0;
@@ -628,10 +787,15 @@ class GameEngine {
     }
 
     // UPDATE ENTITIES
-    if (this.state === "PLAYING") {
+    if (this.state === "PLAYING" && this.hitStopFrames <= 0) {
       if (this.player) this.player.update(this.canvas.width, this.canvas.height, this.opponent);
       if (this.opponent) this.opponent.update(this.canvas.width, this.canvas.height, this.player);
       this.updateFloatingTexts();
+      this.updateHUD();
+    } else if (this.state === "PLAYING" && this.hitStopFrames > 0) {
+      this.hitStopFrames--;
+      this.updateHUD();
+    } else if (this.state === "PAUSED") {
       this.updateHUD();
     }
 
@@ -648,7 +812,7 @@ class GameEngine {
     this.particles.updateAndDraw(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel);
 
     // 2. Draw fighters
-    if (this.state === "PLAYING") {
+    if (this.state === "PLAYING" || this.state === "PAUSED") {
       if (this.player) this.player.draw(this.ctx);
       if (this.opponent) this.opponent.draw(this.ctx);
       this.drawFloatingTexts();

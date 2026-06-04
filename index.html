@@ -71,14 +71,32 @@
       </div>
 
       <div id="fight-announcement">FIGHT!</div>
+      <button id="btn-pause" class="hud-icon-button" aria-label="Pause game">II</button>
       
       <div id="controls-hint">
         <span>[A][D] Move</span>
         <span>[W] Jump</span>
+        <span>[Space] Dodge</span>
         <span>[J] Punch</span>
         <span>[K] Kick</span>
-        <span>[L] Special Skill</span>
+        <span class="control-special">[L] Special Skill</span>
         <span>[I] Block</span>
+        <span>[P] Pause</span>
+      </div>
+
+      <div id="touch-controls" aria-label="Touch combat controls">
+        <div class="touch-cluster movement-cluster">
+          <button class="touch-btn" data-control="left" aria-label="Move left">LEFT</button>
+          <button class="touch-btn" data-control="right" aria-label="Move right">RIGHT</button>
+        </div>
+        <div class="touch-cluster action-cluster">
+          <button class="touch-btn" data-control="jump" aria-label="Jump">JUMP</button>
+          <button class="touch-btn" data-control="dodge" aria-label="Dodge">DODGE</button>
+          <button class="touch-btn" data-control="block" aria-label="Block">BLOCK</button>
+          <button class="touch-btn attack-btn" data-control="light" aria-label="Light attack">LIGHT</button>
+          <button class="touch-btn attack-btn" data-control="heavy" aria-label="Heavy attack">HEAVY</button>
+          <button class="touch-btn special-btn" data-control="special" aria-label="Special attack">SKILL</button>
+        </div>
       </div>
     </div>
 
@@ -110,6 +128,10 @@
             <span class="control-desc">Light Punch (Quick attack, low damage)</span>
           </div>
           <div class="control-row">
+            <span class="control-key">Space / Q</span>
+            <span class="control-desc">Dodge (Brief invulnerability, cooldown)</span>
+          </div>
+          <div class="control-row">
             <span class="control-key">K</span>
             <span class="control-desc">Heavy Kick (Slower attack, high knockback)</span>
           </div>
@@ -120,6 +142,10 @@
           <div class="control-row">
             <span class="control-key">I</span>
             <span class="control-desc">Block (Reduces incoming damage by 85%)</span>
+          </div>
+          <div class="control-row">
+            <span class="control-key">P / Esc</span>
+            <span class="control-desc">Pause / Resume</span>
           </div>
         </div>
         <button id="btn-back-to-menu" class="btn btn-secondary">BACK TO MENU</button>
@@ -149,6 +175,7 @@
         </div>
 
         <button id="btn-fight" class="btn btn-primary btn-glow hidden">COMMENCE DUEL</button>
+        <button id="btn-reset-progress" class="btn btn-secondary compact-btn">RESET PROGRESS</button>
       </div>
     </div>
 
@@ -228,6 +255,16 @@
         </div>
         <button id="btn-retry" class="btn btn-primary btn-glow">RETRY DUEL</button>
         <button id="btn-gameover-map" class="btn btn-secondary">RETREAT TO MAP</button>
+      </div>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div id="pause-screen" class="screen-overlay hidden">
+      <div class="overlay-content pause-content">
+        <h2 class="section-title">PAUSED</h2>
+        <p class="pause-desc">Catch your breath. The duel is waiting.</p>
+        <button id="btn-resume" class="btn btn-primary">RESUME FIGHT</button>
+        <button id="btn-pause-map" class="btn btn-secondary">RETREAT TO MAP</button>
       </div>
     </div>
   </div>

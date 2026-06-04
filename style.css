@@ -30,13 +30,14 @@ body {
   align-items: center;
   height: 100vh;
   width: 100vw;
+  touch-action: none;
 }
 
 /* Main Container to scale the game */
 #game-container {
   position: relative;
-  width: min(1024px, 95vw);
-  height: min(576px, calc(95vw * 9 / 16));
+  width: min(1024px, 100vw, calc(100dvh * 16 / 9));
+  height: min(576px, 100dvh, calc(100vw * 9 / 16));
   aspect-ratio: 16 / 9;
   background-color: #0b0b10;
   box-shadow: 0 0 40px rgba(0, 242, 254, 0.15), 0 0 80px rgba(255, 0, 127, 0.05);
@@ -84,7 +85,7 @@ canvas {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 24px 32px;
   text-align: center;
   max-width: 95%;
@@ -168,6 +169,12 @@ canvas {
   text-transform: uppercase;
   margin: 10px 0;
   width: 280px;
+}
+
+.compact-btn {
+  width: 220px;
+  padding: 11px 18px;
+  font-size: 0.75rem;
 }
 
 .btn-primary {
@@ -292,6 +299,11 @@ canvas {
   transform: translateY(-2px);
 }
 
+.level-node.selected {
+  border-color: var(--white-glow);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.35), inset 0 0 14px rgba(255, 255, 255, 0.12);
+}
+
 .level-node.locked {
   border-color: rgba(255, 255, 255, 0.02);
   opacity: 0.35;
@@ -403,11 +415,12 @@ canvas {
 
 .btn-upgrade {
   font-family: 'Orbitron', sans-serif;
-  font-size: 1.5rem;
+  font-size: 0.85rem;
   font-weight: 900;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: auto;
+  min-width: 86px;
+  height: 42px;
+  border-radius: 6px;
   border: none;
   background: var(--cyan-glow);
   color: #020205;
@@ -420,6 +433,8 @@ canvas {
   margin: 0;
   flex-shrink: 0;
   margin-left: 15px;
+  letter-spacing: 1px;
+  white-space: nowrap;
 }
 
 .btn-upgrade:hover {
@@ -442,6 +457,29 @@ canvas {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.hud-icon-button {
+  position: absolute;
+  top: 20px;
+  right: 50%;
+  transform: translateX(220px);
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 12, 18, 0.74);
+  color: var(--text-main);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.hud-icon-button:hover {
+  border-color: var(--cyan-glow);
+  color: var(--cyan-glow);
 }
 
 .hud-panel {
@@ -692,6 +730,68 @@ canvas {
   font-family: 'Orbitron', sans-serif;
 }
 
+#touch-controls {
+  display: none;
+  position: absolute;
+  inset: auto 16px 14px 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: auto;
+  z-index: 13;
+}
+
+.touch-cluster {
+  display: grid;
+  gap: 8px;
+}
+
+.movement-cluster {
+  grid-template-columns: repeat(2, 58px);
+}
+
+.action-cluster {
+  grid-template-columns: repeat(3, 62px);
+}
+
+.touch-btn {
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(12, 12, 18, 0.66);
+  color: rgba(255, 255, 255, 0.82);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn.pressed,
+.touch-btn:active {
+  transform: translateY(1px) scale(0.98);
+  border-color: var(--cyan-glow);
+  color: var(--cyan-glow);
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.4);
+}
+
+.attack-btn {
+  border-color: rgba(255, 0, 127, 0.25);
+}
+
+.special-btn {
+  border-color: rgba(157, 78, 221, 0.35);
+}
+
+.pause-content {
+  width: 390px;
+}
+
+.pause-desc {
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
 /* Victory & Game Over Screens Special Titles */
 .victory-title {
   font-family: 'Orbitron', sans-serif;
@@ -736,4 +836,196 @@ canvas {
 .gameover-desc {
   color: var(--text-muted);
   margin-bottom: 30px;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  #controls-hint {
+    display: none;
+  }
+
+  #touch-controls {
+    display: flex;
+  }
+}
+
+@media (max-width: 900px), (max-height: 540px) {
+  .overlay-content {
+    padding: 18px 20px;
+    max-width: 96%;
+    max-height: 96%;
+  }
+
+  .game-title {
+    font-size: clamp(2.2rem, 9vw, 3.4rem);
+    letter-spacing: 3px;
+  }
+
+  .game-subtitle {
+    font-size: 0.82rem;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: clamp(1.2rem, 5vw, 1.7rem);
+    letter-spacing: 1px;
+  }
+
+  .btn {
+    width: min(260px, 84vw);
+    padding: 12px 18px;
+    font-size: 0.82rem;
+  }
+
+  #levels-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .level-node {
+    padding: 8px;
+  }
+
+  .level-num {
+    font-size: 1.25rem;
+  }
+
+  .level-name {
+    max-width: 135px;
+    font-size: 0.75rem;
+  }
+
+  .upgrade-item,
+  .control-row {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .upgrade-desc,
+  .control-desc {
+    font-size: 0.72rem;
+  }
+
+  .hud-panel {
+    top: 10px;
+    min-width: 158px;
+    padding: 8px;
+  }
+
+  .player-hud {
+    left: 8px;
+  }
+
+  .enemy-hud {
+    right: 8px;
+  }
+
+  .hud-avatar {
+    display: none;
+  }
+
+  .hud-profile {
+    gap: 8px;
+  }
+
+  .hud-name {
+    font-size: 0.68rem;
+    letter-spacing: 0.5px;
+  }
+
+  .hud-stat-bar-container {
+    width: 126px;
+  }
+
+  #hud-center-info {
+    top: 10px;
+  }
+
+  #hud-level-title {
+    font-size: 0.58rem;
+    letter-spacing: 1px;
+  }
+
+  #hud-timer {
+    font-size: 1.45rem;
+  }
+
+  #hud-economy {
+    display: none;
+  }
+
+  .hud-icon-button {
+    top: 58px;
+    right: 10px;
+    transform: none;
+    width: 38px;
+    height: 38px;
+  }
+
+  #fight-announcement {
+    font-size: clamp(2.1rem, 12vw, 3.8rem);
+    letter-spacing: 2px;
+  }
+
+  #combo-container {
+    top: 86px;
+    left: 16px;
+  }
+
+  #combo-count {
+    font-size: 2.2rem;
+  }
+}
+
+@media (max-width: 560px) {
+  #game-container {
+    border-radius: 0;
+    border-width: 0;
+  }
+
+  .overlay-content {
+    padding: 10px 14px;
+  }
+
+  #start-screen .overlay-content {
+    overflow: hidden;
+  }
+
+  .game-title {
+    font-size: 1.85rem;
+    line-height: 1;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+  }
+
+  .game-subtitle {
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .btn {
+    margin: 4px 0;
+    padding: 8px 12px;
+    font-size: 0.62rem;
+    width: min(260px, 76vw);
+  }
+
+  #touch-controls {
+    inset: auto 8px 8px 8px;
+  }
+
+  .movement-cluster {
+    grid-template-columns: repeat(2, 48px);
+  }
+
+  .action-cluster {
+    grid-template-columns: repeat(3, 50px);
+  }
+
+  .touch-btn {
+    min-height: 38px;
+    font-size: 0.48rem;
+  }
 }
