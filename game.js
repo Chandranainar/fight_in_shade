@@ -39,6 +39,7 @@ class GameEngine {
     this.hitStopFrames = 0;
     this.feedbackCooldown = 0;
     this.impactFlash = { life: 0, maxLife: 0, color: "#ffffff" };
+    this.camera = { x: 0, y: 0, zoom: 1 };
     this.time = 0; // global frames ticker for animated assets
 
     // Input States
@@ -571,15 +572,15 @@ class GameEngine {
 
   triggerImpactFlash(type, blocked = false) {
     if (blocked) {
-      this.impactFlash = { life: 5, maxLife: 5, color: "rgba(0, 242, 254, 0.18)" };
+      this.impactFlash = { life: 4, maxLife: 4, color: "rgba(210, 240, 255, 0.08)" };
       return;
     }
     if (type === "heavy") {
-      this.impactFlash = { life: 8, maxLife: 8, color: "rgba(255, 221, 102, 0.28)" };
+      this.impactFlash = { life: 6, maxLife: 6, color: "rgba(255, 221, 102, 0.12)" };
     } else if (type === "special") {
-      this.impactFlash = { life: 7, maxLife: 7, color: "rgba(157, 78, 221, 0.28)" };
+      this.impactFlash = { life: 6, maxLife: 6, color: "rgba(157, 78, 221, 0.12)" };
     } else {
-      this.impactFlash = { life: 4, maxLife: 4, color: "rgba(255, 255, 255, 0.16)" };
+      this.impactFlash = { life: 3, maxLife: 3, color: "rgba(255, 255, 255, 0.08)" };
     }
   }
 
@@ -838,6 +839,57 @@ class GameEngine {
     this.impactFlash.life--;
   }
 
+  updateCamera() {
+    if (!this.player || !this.opponent || (this.state !== "PLAYING" && this.state !== "PAUSED")) {
+      this.camera.x *= 0.9;
+      this.camera.y *= 0.9;
+      this.camera.zoom += (1 - this.camera.zoom) * 0.08;
+      return;
+    }
+
+    const pCenterX = this.player.x + this.player.width / 2;
+    const oCenterX = this.opponent.x + this.opponent.width / 2;
+    const pCenterY = this.player.y + this.player.height / 2;
+    const oCenterY = this.opponent.y + this.opponent.height / 2;
+    const focusX = (pCenterX + oCenterX) / 2;
+    const focusY = (pCenterY + oCenterY) / 2;
+    const distance = Math.abs(pCenterX - oCenterX);
+
+    const targetZoom = Math.min(1.075, Math.max(1, 1.065 - distance / 9000));
+    const targetX = Math.max(-42, Math.min(42, (focusX - this.canvas.width / 2) * 0.16));
+    const targetY = Math.max(-16, Math.min(18, (focusY - this.canvas.height * 0.55) * 0.08));
+
+    this.camera.x += (targetX - this.camera.x) * 0.06;
+    this.camera.y += (targetY - this.camera.y) * 0.06;
+    this.camera.zoom += (targetZoom - this.camera.zoom) * 0.045;
+  }
+
+  applyWorldCamera() {
+    const z = this.camera.zoom;
+    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+    this.ctx.scale(z, z);
+    this.ctx.translate(-this.canvas.width / 2 - this.camera.x, -this.canvas.height / 2 - this.camera.y);
+  }
+
+  drawCinematicOverlay() {
+    const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    ctx.save();
+    const vignette = ctx.createRadialGradient(w / 2, h * 0.55, h * 0.15, w / 2, h * 0.55, h * 0.78);
+    vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+    vignette.addColorStop(0.72, "rgba(0, 0, 0, 0.06)");
+    vignette.addColorStop(1, "rgba(0, 0, 0, 0.44)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+    ctx.fillRect(0, 0, w, 18);
+    ctx.fillRect(0, h - 18, w, 18);
+    ctx.restore();
+  }
+
   /**
    * The core 60fps ticker loop
    */
@@ -874,6 +926,7 @@ class GameEngine {
     } else if (this.state === "PAUSED") {
       this.updateHUD();
     }
+    this.updateCamera();
 
     // DRAW GRAPHICS
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -884,21 +937,24 @@ class GameEngine {
     // 1. Draw atmospheric skies, moons, mountains
     this.assets.drawBackground(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel, this.time);
 
+    this.applyWorldCamera();
+
     // Apply screenshake translate and draw particle effects/ghost trails
     this.particles.updateAndDraw(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel);
 
-    // 2. Draw fighters
+    // 2. Draw static combat arena platform block
+    this.assets.drawGround(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel);
+
+    // 3. Draw fighters
     if (this.state === "PLAYING" || this.state === "PAUSED") {
       if (this.player) this.player.draw(this.ctx);
       if (this.opponent) this.opponent.draw(this.ctx);
       this.drawFloatingTexts();
     }
 
-    // 3. Draw static combat arena platform block
-    this.assets.drawGround(this.ctx, this.canvas.width, this.canvas.height, this.currentLevel);
-
     this.ctx.restore(); // Restore screenshake translation
 
+    this.drawCinematicOverlay();
     this.drawImpactFlash();
 
     requestAnimationFrame(() => this.tick());

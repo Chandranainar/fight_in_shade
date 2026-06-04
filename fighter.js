@@ -702,11 +702,28 @@ class Fighter {
     ctx.translate(this.x + this.width / 2, this.y);
     ctx.scale(this.facing, 1);
 
+    this.drawGroundShadow(ctx);
     this.drawAttackTrail(ctx);
 
     // Render debug boxes if needed, currently just procedural drawing
     this.drawBody(ctx, this.color, false);
 
+    ctx.restore();
+  }
+
+  drawGroundShadow(ctx) {
+    const lift = Math.max(0, (this.y + this.height) - (ctx.canvas.height - 96));
+    const airborneFade = this.isGrounded ? 1 : 0.55;
+    const shadowScale = this.state === "dodge" ? 1.45 : (this.state.startsWith("attack") ? 1.25 : 1);
+
+    ctx.save();
+    ctx.globalAlpha = 0.34 * airborneFade;
+    ctx.fillStyle = "#000000";
+    ctx.shadowColor = "#000000";
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.ellipse(0, this.height + 4 - lift * 0.08, 30 * shadowScale, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -849,16 +866,16 @@ class Fighter {
 
     const progress = 1 - Math.max(0, this.stateTimer / this.stateMaxTimer);
     const isHeavy = this.state === "attack_heavy" || this.state === "attack_special";
-    const alpha = Math.sin(Math.min(1, progress) * Math.PI) * (isHeavy ? 0.45 : 0.3);
+    const alpha = Math.sin(Math.min(1, progress) * Math.PI) * (isHeavy ? 0.22 : 0.16);
     if (alpha <= 0.02) return;
 
     ctx.save();
     ctx.translate(isHeavy ? 24 : 18, 48);
     ctx.strokeStyle = isHeavy ? this.weaponColor : this.trailColor;
-    ctx.lineWidth = isHeavy ? 10 : 6;
+    ctx.lineWidth = isHeavy ? 7 : 4;
     ctx.lineCap = "round";
     ctx.globalAlpha = alpha;
-    ctx.shadowBlur = isHeavy ? 24 : 16;
+    ctx.shadowBlur = isHeavy ? 12 : 7;
     ctx.shadowColor = isHeavy ? this.weaponColor : this.trailColor;
     ctx.beginPath();
     if (isHeavy) {

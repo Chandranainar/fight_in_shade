@@ -197,23 +197,23 @@ class ParticleSystem {
   }
 
   spawnSlashArc(x, y, facing, color, type = "light") {
-    const arc = new Particle(x, y, 0, 0, color, type === "heavy" ? 38 : 28, type === "heavy" ? 14 : 10, 1, "slash");
+    const arc = new Particle(x, y, 0, 0, color, type === "heavy" ? 34 : 24, type === "heavy" ? 10 : 8, 1, "slash");
     arc.facing = facing;
     arc.type = type;
     arc.update = function() {
-      this.size += this.type === "heavy" ? 4.8 : 3.4;
+      this.size += this.type === "heavy" ? 4.2 : 2.8;
       this.life -= this.decay;
       this.alpha = Math.max(0, this.life / this.maxLife);
     };
     arc.draw = function(ctx) {
       ctx.save();
-      ctx.globalAlpha = this.alpha;
+      ctx.globalAlpha = this.alpha * (this.type === "heavy" ? 0.62 : 0.5);
       ctx.translate(this.x, this.y);
       ctx.scale(this.facing, 1);
       ctx.strokeStyle = this.color;
-      ctx.lineWidth = this.type === "heavy" ? 8 : 5;
+      ctx.lineWidth = this.type === "heavy" ? 6 : 3.5;
       ctx.lineCap = "round";
-      ctx.shadowBlur = this.type === "heavy" ? 24 : 16;
+      ctx.shadowBlur = this.type === "heavy" ? 16 : 10;
       ctx.shadowColor = this.color;
       ctx.beginPath();
       if (this.type === "heavy") {
@@ -223,9 +223,9 @@ class ParticleSystem {
       }
       ctx.stroke();
 
-      ctx.globalAlpha = this.alpha * 0.45;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = this.type === "heavy" ? 3 : 2;
+      ctx.globalAlpha = this.alpha * 0.18;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = this.type === "heavy" ? 2 : 1.25;
       ctx.beginPath();
       ctx.arc(0, 0, this.size * 0.72, this.type === "heavy" ? -1.05 : -0.65, this.type === "heavy" ? 0.55 : 0.25);
       ctx.stroke();
@@ -235,18 +235,18 @@ class ParticleSystem {
   }
 
   spawnImpactBurst(x, y, color, type = "light") {
-    const ring = new Particle(x, y, 0, 0, color, type === "heavy" ? 12 : 8, type === "heavy" ? 13 : 9, 1, "circle");
+    const ring = new Particle(x, y, 0, 0, color, type === "heavy" ? 10 : 7, type === "heavy" ? 10 : 7, 1, "circle");
     ring.update = function() {
-      this.size += type === "heavy" ? 5 : 3.4;
+      this.size += type === "heavy" ? 4 : 2.8;
       this.life -= this.decay;
       this.alpha = Math.max(0, this.life / this.maxLife);
     };
     ring.draw = function(ctx) {
       ctx.save();
-      ctx.globalAlpha = this.alpha;
+      ctx.globalAlpha = this.alpha * 0.7;
       ctx.strokeStyle = this.color;
-      ctx.lineWidth = type === "heavy" ? 4 : 3;
-      ctx.shadowBlur = type === "heavy" ? 22 : 14;
+      ctx.lineWidth = type === "heavy" ? 3 : 2;
+      ctx.shadowBlur = type === "heavy" ? 14 : 9;
       ctx.shadowColor = this.color;
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -255,7 +255,7 @@ class ParticleSystem {
     };
     this.particles.push(ring);
 
-    const rays = type === "heavy" ? 10 : 6;
+    const rays = type === "heavy" ? 8 : 5;
     for (let i = 0; i < rays; i++) {
       const angle = (Math.PI * 2 / rays) * i + Math.random() * 0.18;
       const speed = (type === "heavy" ? 8 : 5) + Math.random() * 3;

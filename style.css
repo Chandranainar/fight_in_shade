@@ -464,7 +464,7 @@ canvas {
 #hud-overlay {
   background: transparent;
   pointer-events: none;
-  padding: 20px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -472,14 +472,14 @@ canvas {
 
 .hud-icon-button {
   position: absolute;
-  top: 20px;
+  top: 16px;
   right: 50%;
-  transform: translateX(220px);
-  width: 42px;
-  height: 42px;
+  transform: translateX(190px);
+  width: 38px;
+  height: 38px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(12, 12, 18, 0.74);
+  background: rgba(5, 5, 8, 0.48);
   color: var(--text-main);
   font-family: 'Orbitron', sans-serif;
   font-weight: 900;
@@ -495,24 +495,25 @@ canvas {
 
 .hud-panel {
   position: absolute;
-  top: 20px;
-  background: rgba(12, 12, 18, 0.8);
+  top: 16px;
+  background: rgba(5, 8, 10, 0.58);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(5px);
-  padding: 10px 14px;
-  border-radius: 12px;
-  min-width: 250px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  backdrop-filter: blur(7px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-width: 228px;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+  opacity: 0.86;
 }
 
 .player-hud {
-  left: 20px;
-  border-left: 4px solid var(--cyan-glow);
+  left: 18px;
+  border-left: 3px solid var(--cyan-glow);
 }
 
 .enemy-hud {
-  right: 20px;
-  border-right: 4px solid var(--pink-glow);
+  right: 18px;
+  border-right: 3px solid var(--pink-glow);
 }
 
 .hud-profile {
@@ -526,8 +527,8 @@ canvas {
 }
 
 .hud-avatar {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 2px solid;
   flex-shrink: 0;
@@ -559,7 +560,7 @@ canvas {
 
 .hud-name {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 1.5px;
   margin-bottom: 6px;
@@ -569,7 +570,7 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 170px;
+  width: 154px;
 }
 
 .hud-bar-wrapper {
@@ -634,7 +635,7 @@ canvas {
 /* Center HUD info: Timer and level name */
 #hud-center-info {
   position: absolute;
-  top: 20px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -645,7 +646,7 @@ canvas {
 
 #hud-level-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 3px;
   color: var(--text-muted);
@@ -655,7 +656,7 @@ canvas {
 
 #hud-timer {
   font-family: 'Orbitron', sans-serif;
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 900;
   color: var(--white-glow);
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
@@ -686,8 +687,8 @@ canvas {
 /* Combo tracker */
 #combo-container {
   position: absolute;
-  top: 140px;
-  left: 50px;
+  top: 118px;
+  left: 36px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -701,7 +702,7 @@ canvas {
 
 #combo-count {
   font-family: 'Orbitron', sans-serif;
-  font-size: 3.5rem;
+  font-size: 3.1rem;
   font-weight: 900;
   color: var(--cyan-glow);
   line-height: 1;
@@ -740,14 +741,20 @@ canvas {
 /* Control Hints at bottom */
 #controls-hint {
   position: absolute;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 15px;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.3);
+  gap: 12px;
+  font-size: 0.64rem;
+  color: rgba(255, 255, 255, 0.09);
   font-family: 'Orbitron', sans-serif;
+  opacity: 0.14;
+  transition: opacity 0.25s ease;
+}
+
+#game-container:hover #controls-hint {
+  opacity: 0.24;
 }
 
 #touch-controls {
